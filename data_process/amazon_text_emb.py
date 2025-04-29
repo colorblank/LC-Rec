@@ -6,9 +6,7 @@ import numpy as np
 import torch
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
-from utils.common_utils import load_json
-from utils.device_utils import set_device
-from utils.model_utils import load_plm
+from utils.common_utils import load_json, set_device, load_plm
 from utils.text_utils import clean_text
 
 

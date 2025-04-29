@@ -4,15 +4,14 @@ import os
 
 import openai
 
-from utils import (
+from utils.common_utils import load_json, write_json_file
+from utils.dataset_config import (
     amazon18_dataset2fullname,
-    get_res_batch,
     intention_prompt,
-    load_json,
     preference_prompt_1,
     preference_prompt_2,
-    write_json_file,
 )
+from utils.openai_utils import get_res_batch
 
 
 def get_intention_train(
