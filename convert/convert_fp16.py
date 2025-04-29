@@ -1,4 +1,3 @@
-
 import argparse
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
