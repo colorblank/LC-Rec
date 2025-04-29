@@ -6,13 +6,9 @@ import os
 
 from tqdm import tqdm
 
-from utils import (
-    amazon18_dataset2fullname,
-    check_path,
-    clean_text,
-    write_json_file,
-    write_remap_index,
-)
+from utils.dataset_config import amazon18_dataset2fullname
+from utils.common_utils import check_path, write_json_file, write_remap_index
+from utils.text_utils import clean_text
 
 
 def load_ratings(

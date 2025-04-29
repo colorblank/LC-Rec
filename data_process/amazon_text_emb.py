@@ -4,8 +4,12 @@ import random
 
 import numpy as np
 import torch
+from transformers import PreTrainedModel, PreTrainedTokenizer
 
-from utils import *
+from utils.common_utils import load_json
+from utils.device_utils import set_device
+from utils.model_utils import load_plm
+from utils.text_utils import clean_text
 
 
 def load_data(args: argparse.Namespace) -> dict:
@@ -80,8 +84,8 @@ def preprocess_text(args: argparse.Namespace) -> list[list]:
 def generate_item_embedding(
     args: argparse.Namespace,
     item_text_list: list[list],
-    tokenizer: "PreTrainedTokenizer",
-    model: "PreTrainedModel",
+    tokenizer: PreTrainedTokenizer,
+    model: PreTrainedModel,
     word_drop_ratio: float = -1,
 ) -> None:
     """生成商品文本的嵌入向量。
