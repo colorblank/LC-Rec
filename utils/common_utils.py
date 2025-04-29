@@ -9,7 +9,7 @@ import torch
 from transformers import AutoModel, AutoTokenizer
 
 
-def check_path(path: str) -> None:
+def ensure_dir(path: str) -> None:
     """检查路径是否存在,不存在则创建。
 
     Args:
@@ -129,3 +129,9 @@ def write_remap_index(unit2index: dict, file: str) -> None:
     with open(file, "w") as fp:
         for unit in unit2index:
             fp.write(unit + "\t" + str(unit2index[unit]) + "\n")
+
+
+def get_local_time() -> str:
+    """获取当前本地时间的字符串表示。"""
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
