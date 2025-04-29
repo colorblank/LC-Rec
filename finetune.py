@@ -1,19 +1,20 @@
 import argparse
 import os
-
 import sys
 from typing import List
 
 import torch
 import transformers
+from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 
-from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
-
-from utils import *
 from collator import Collator
+from utils.arg_parser import parse_dataset_args, parse_global_args, parse_train_args
+from utils.common_utils import ensure_dir
+from utils.dataset_utils import load_datasets
+from utils.seed_utils import set_seed
+
 
 def train(args):
-
     set_seed(args.seed)
     ensure_dir(args.output_dir)
 
@@ -30,7 +31,7 @@ def train(args):
     config = LlamaConfig.from_pretrained(args.base_model)
     tokenizer = LlamaTokenizer.from_pretrained(
         args.base_model,
-        model_max_length = args.model_max_length,
+        model_max_length=args.model_max_length,
         padding_side="right",
     )
     tokenizer.pad_token_id = 0
@@ -47,7 +48,6 @@ def train(args):
 
     collator = Collator(args, tokenizer)
 
-
     model = LlamaForCausalLM.from_pretrained(
         args.base_model,
         # torch_dtype=torch.float16,
@@ -55,11 +55,9 @@ def train(args):
     )
     model.resize_token_embeddings(len(tokenizer))
 
-
     if not ddp and torch.cuda.device_count() > 1:
         model.is_parallelizable = True
         model.model_parallel = True
-
 
     trainer = transformers.Trainer(
         model=model,
@@ -90,13 +88,12 @@ def train(args):
             deepspeed=args.deepspeed,
             ddp_find_unused_parameters=False if ddp else None,
             report_to=None,
-            eval_delay= 1 if args.save_and_eval_strategy=="epoch" else 2000,
+            eval_delay=1 if args.save_and_eval_strategy == "epoch" else 2000,
         ),
         tokenizer=tokenizer,
         data_collator=collator,
     )
     model.config.use_cache = False
-
 
     trainer.train(
         resume_from_checkpoint=args.resume_from_checkpoint,
@@ -106,10 +103,8 @@ def train(args):
     trainer.save_model(output_dir=args.output_dir)
 
 
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='LLMRec')
+    parser = argparse.ArgumentParser(description="LLMRec")
     parser = parse_global_args(parser)
     parser = parse_train_args(parser)
     parser = parse_dataset_args(parser)
