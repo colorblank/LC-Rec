@@ -1,30 +1,27 @@
 import collections
 import json
-import logging
+import os
 
 import numpy as np
 import torch
-from time import time
-from torch import optim
-from tqdm import tqdm
-
-from torch.utils.data import DataLoader
-
 from datasets import EmbDataset
 from models.rqvae import RQVAE
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-import os
 
 def check_collision(all_indices_str):
     tot_item = len(all_indices_str)
     tot_indice = len(set(all_indices_str.tolist()))
-    return tot_item==tot_indice
+    return tot_item == tot_indice
+
 
 def get_indices_count(all_indices_str):
     indices_count = collections.defaultdict(int)
     for index in all_indices_str:
         indices_count[index] += 1
     return indices_count
+
 
 def get_collision_item(all_indices_str):
     index2id = {}
@@ -41,50 +38,52 @@ def get_collision_item(all_indices_str):
 
     return collision_item_groups
 
+
 dataset = "Games"
 ckpt_path = "/zhengbowen/rqvae_ckpt/xxxx"
 output_dir = f"/zhengbowen/data/{dataset}/"
 output_file = f"{dataset}.index.json"
-output_file = os.path.join(output_dir,output_file)
+output_file = os.path.join(output_dir, output_file)
 device = torch.device("cuda:0")
 
-ckpt = torch.load(ckpt_path, map_location=torch.device('cpu'))
+ckpt = torch.load(ckpt_path, map_location=torch.device("cpu"))
 args = ckpt["args"]
 state_dict = ckpt["state_dict"]
 
 
 data = EmbDataset(args.data_path)
 
-model = RQVAE(in_dim=data.dim,
-                  num_emb_list=args.num_emb_list,
-                  e_dim=args.e_dim,
-                  layers=args.layers,
-                  dropout_prob=args.dropout_prob,
-                  bn=args.bn,
-                  loss_type=args.loss_type,
-                  quant_loss_weight=args.quant_loss_weight,
-                  kmeans_init=args.kmeans_init,
-                  kmeans_iters=args.kmeans_iters,
-                  sk_epsilons=args.sk_epsilons,
-                  sk_iters=args.sk_iters,
-                  )
+model = RQVAE(
+    in_dim=data.dim,
+    num_emb_list=args.num_emb_list,
+    e_dim=args.e_dim,
+    layers=args.layers,
+    dropout_prob=args.dropout_prob,
+    bn=args.bn,
+    loss_type=args.loss_type,
+    quant_loss_weight=args.quant_loss_weight,
+    kmeans_init=args.kmeans_init,
+    kmeans_iters=args.kmeans_iters,
+    sk_epsilons=args.sk_epsilons,
+    sk_iters=args.sk_iters,
+)
 
 model.load_state_dict(state_dict)
 model = model.to(device)
 model.eval()
 print(model)
 
-data_loader = DataLoader(data,num_workers=args.num_workers,
-                             batch_size=64, shuffle=False,
-                             pin_memory=True)
+data_loader = DataLoader(
+    data, num_workers=args.num_workers, batch_size=64, shuffle=False, pin_memory=True
+)
 
 all_indices = []
 all_indices_str = []
-prefix = ["<a_{}>","<b_{}>","<c_{}>","<d_{}>","<e_{}>"]
+prefix = ["<a_{}>", "<b_{}>", "<c_{}>", "<d_{}>", "<e_{}>"]
 
 for d in tqdm(data_loader):
     d = d.to(device)
-    indices = model.get_indices(d,use_sk=False)
+    indices = model.get_indices(d, use_sk=False)
     indices = indices.view(-1, indices.shape[-1]).cpu().numpy()
     for index in indices:
         code = []
@@ -99,13 +98,13 @@ all_indices = np.array(all_indices)
 all_indices_str = np.array(all_indices_str)
 
 for vq in model.rq.vq_layers[:-1]:
-    vq.sk_epsilon=0.0
+    vq.sk_epsilon = 0.0
 # model.rq.vq_layers[-1].sk_epsilon = 0.005
 if model.rq.vq_layers[-1].sk_epsilon == 0.0:
     model.rq.vq_layers[-1].sk_epsilon = 0.003
 
 tt = 0
-#There are often duplicate items in the dataset, and we no longer differentiate them
+# There are often duplicate items in the dataset, and we no longer differentiate them
 while True:
     if tt >= 20 or check_collision(all_indices_str):
         break
@@ -128,18 +127,17 @@ while True:
     tt += 1
 
 
-print("All indices number: ",len(all_indices))
+print("All indices number: ", len(all_indices))
 print("Max number of conflicts: ", max(get_indices_count(all_indices_str).values()))
 
 tot_item = len(all_indices_str)
 tot_indice = len(set(all_indices_str.tolist()))
-print("Collision Rate",(tot_item-tot_indice)/tot_item)
+print("Collision Rate", (tot_item - tot_indice) / tot_item)
 
 all_indices_dict = {}
 for item, indices in enumerate(all_indices.tolist()):
     all_indices_dict[item] = list(indices)
 
 
-
-with open(output_file, 'w') as fp:
-    json.dump(all_indices_dict,fp)
+with open(output_file, "w") as fp:
+    json.dump(all_indices_dict, fp)
