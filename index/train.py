@@ -267,9 +267,6 @@ class Trainer(object):
         return self.best_loss, self.best_collision_rate
 
 
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Index")
 
