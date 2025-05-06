@@ -1,0 +1,1 @@
+python3 -m data_process/amazon_text_emb.py
