@@ -139,7 +139,7 @@ class Trainer(object):
             valid_data,
             total=len(valid_data),
             ncols=100,
-            desc=set_color(f"Evaluate   ", "pink"),
+            desc=set_color("Evaluate   ", "pink"),
         )
 
         indices_set = set()
