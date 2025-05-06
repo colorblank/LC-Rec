@@ -2,7 +2,7 @@ import copy
 import json
 import os
 import random
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import torch
@@ -171,9 +171,41 @@ class BaseDataset(Dataset):
 
 
 class SeqRecDataset(BaseDataset):
+    """
+    SeqRecDataset 类用于处理序列推荐数据集。
+
+    该类继承自 BaseDataset，支持训练、验证和测试模式的数据处理。
+
+    Attributes:
+        mode (str): 数据处理模式，可以是 'train'、'valid' 或 'test'。
+        prompt_sample_num (int): 每个样本的提示数量。
+        prompt_id (int): 当前使用的提示 ID。
+        sample_num (int): 样本数量。
+        prompts (list): 提示列表。
+        inter_data (list): 处理后的交互数据。
+        valid_text_data (list): 验证模式下的文本数据。
+
+    Methods:
+        _load_data(): 加载数据集。
+        _remap_items(): 重新映射数据项。
+        _process_train_data(): 处理训练数据。
+        _process_valid_data(): 处理验证数据。
+        _process_test_data(): 处理测试数据。
+        set_prompt(prompt_id): 设置提示 ID。
+        __len__(): 返回数据集的长度。
+        _construct_valid_text(): 构建验证文本数据。
+        _get_text_data(data, prompt): 获取文本数据。
+        __getitem__(index): 获取指定索引的数据项。
+    """
+
     def __init__(
-        self, args, mode="train", prompt_sample_num=1, prompt_id=0, sample_num=-1
-    ):
+        self,
+        args: Any,
+        mode: str = "train",
+        prompt_sample_num: int = 1,
+        prompt_id: int = 0,
+        sample_num: int = -1,
+    ) -> None:
         super().__init__(args)
 
         self.mode = mode
@@ -200,7 +232,12 @@ class SeqRecDataset(BaseDataset):
         else:
             raise NotImplementedError
 
-    def _load_data(self):
+    def _load_data(self) -> None:
+        """
+        加载数据集。
+
+        从指定路径加载交互数据和索引文件。
+        """
         with open(os.path.join(self.data_path, self.dataset + ".inter.json"), "r") as f:
             self.inters = json.load(f)
         with open(
@@ -208,13 +245,24 @@ class SeqRecDataset(BaseDataset):
         ) as f:
             self.indices = json.load(f)
 
-    def _remap_items(self):
+    def _remap_items(self) -> None:
+        """
+        重新映射数据项。
+
+        将原始数据项重新映射为新的索引。
+        """
         self.remapped_inters = dict()
         for uid, items in self.inters.items():
             new_items = ["".join(self.indices[str(i)]) for i in items]
             self.remapped_inters[uid] = new_items
 
-    def _process_train_data(self):
+    def _process_train_data(self) -> List[Dict[str, Any]]:
+        """
+        处理训练数据。
+
+        Returns:
+            List[Dict[str, Any]]: 处理后的训练数据列表。
+        """
         inter_data = []
         for uid in self.remapped_inters:
             items = self.remapped_inters[uid][:-2]
@@ -235,7 +283,13 @@ class SeqRecDataset(BaseDataset):
 
         return inter_data
 
-    def _process_valid_data(self):
+    def _process_valid_data(self) -> List[Dict[str, Any]]:
+        """
+        处理验证数据。
+
+        Returns:
+            List[Dict[str, Any]]: 处理后的验证数据列表。
+        """
         inter_data = []
         for uid in self.remapped_inters:
             items = self.remapped_inters[uid]
@@ -254,7 +308,13 @@ class SeqRecDataset(BaseDataset):
 
         return inter_data
 
-    def _process_test_data(self):
+    def _process_test_data(self) -> List[Dict[str, Any]]:
+        """
+        处理测试数据。
+
+        Returns:
+            List[Dict[str, Any]]: 处理后的测试数据列表。
+        """
         inter_data = []
         for uid in self.remapped_inters:
             items = self.remapped_inters[uid]
@@ -278,10 +338,22 @@ class SeqRecDataset(BaseDataset):
 
         return inter_data
 
-    def set_prompt(self, prompt_id):
+    def set_prompt(self, prompt_id: int) -> None:
+        """
+        设置提示 ID。
+
+        Args:
+            prompt_id (int): 要设置的提示 ID。
+        """
         self.prompt_id = prompt_id
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        返回数据集的长度。
+
+        Returns:
+            int: 数据集的长度。
+        """
         if self.mode == "train":
             return len(self.inter_data) * self.prompt_sample_num
         elif self.mode == "valid":
@@ -291,7 +363,10 @@ class SeqRecDataset(BaseDataset):
         else:
             raise NotImplementedError
 
-    def _construct_valid_text(self):
+    def _construct_valid_text(self) -> None:
+        """
+        构建验证文本数据。
+        """
         self.valid_text_data = []
         if self.sample_valid:
             all_prompt_ids = range(len(self.prompts))
@@ -312,7 +387,19 @@ class SeqRecDataset(BaseDataset):
                 input, output = self._get_text_data(d, prompt)
                 self.valid_text_data.append({"input_ids": input, "labels": output})
 
-    def _get_text_data(self, data, prompt):
+    def _get_text_data(
+        self, data: Dict[str, Any], prompt: Dict[str, str]
+    ) -> Tuple[str, str]:
+        """
+        获取文本数据。
+
+        Args:
+            data (Dict[str, Any]): 数据字典。
+            prompt (Dict[str, str]): 提示字典。
+
+        Returns:
+            Tuple[str, str]: 输入和输出文本。
+        """
         instruction = prompt["instruction"].format(**data)
         response = prompt["response"].format(**data)
 
@@ -324,7 +411,16 @@ class SeqRecDataset(BaseDataset):
 
         return input, output
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Dict[str, str]:
+        """
+        获取指定索引的数据项。
+
+        Args:
+            index (int): 数据索引。
+
+        Returns:
+            Dict[str, str]: 包含输入和输出的字典。
+        """
         if self.mode == "valid":
             return self.valid_text_data[index]
 
