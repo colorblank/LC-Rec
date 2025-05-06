@@ -9,7 +9,6 @@ import tempfile
 
 from huggingface_hub import snapshot_download
 import torch
-from torch import nn
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
 
