@@ -2,9 +2,10 @@
 
 import html
 import re
+from typing import Union
 
 
-def clean_text(raw_text: str | list | dict) -> str:
+def clean_text(raw_text: Union[str, list, dict]) -> str:
     """清理文本,移除HTML标签和特殊字符。
 
     Args:
