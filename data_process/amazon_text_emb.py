@@ -1,7 +1,7 @@
 import argparse
 import os
 import random
-
+import h5py
 import numpy as np
 import torch
 from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -51,7 +51,7 @@ def generate_text(item2feature: dict, features: list[str]) -> list[list]:
                 meta_value = clean_text(data[meta_key])
                 text.append(meta_value.strip())
 
-        item_text_list.append([int(item), text])
+        item_text_list.append([str(item), text])
 
     return item_text_list
 
@@ -77,6 +77,63 @@ def preprocess_text(args: argparse.Namespace) -> list[list]:
     # item_text_list = generate_text(item2feature, ['title'])
     # return: list of (item_ID, cleaned_item_text)
     return item_text_list
+
+
+def _apply_word_dropout(sentence: str, word_drop_ratio: float) -> str:
+    """对句子应用词丢弃。"""
+    if word_drop_ratio <= 0:
+        return sentence
+    words = sentence.split(" ")
+    kept_words = [wd for wd in words if random.random() > word_drop_ratio]
+    return " ".join(kept_words)
+
+
+def _get_sentence_embedding(
+    sentence: str,
+    tokenizer: PreTrainedTokenizer,
+    model: PreTrainedModel,
+    args: argparse.Namespace,
+) -> torch.Tensor:
+    """生成单个句子的嵌入向量。"""
+    encoded_sentence = tokenizer(
+        [sentence],  # Tokenizer expects a list of sentences
+        max_length=args.max_sent_len,
+        truncation=True,
+        return_tensors="pt",
+        padding="longest",
+    ).to(args.device)
+
+    outputs = model(
+        input_ids=encoded_sentence.input_ids,
+        attention_mask=encoded_sentence.attention_mask,
+    )
+
+    masked_output = outputs.last_hidden_state * encoded_sentence[
+        "attention_mask"
+    ].unsqueeze(-1)
+    mean_output = masked_output.sum(dim=1) / encoded_sentence["attention_mask"].sum(
+        dim=-1, keepdim=True
+    )
+    return mean_output.detach().cpu()
+
+
+def _get_item_field_embeddings(
+    texts: list[str],
+    tokenizer: PreTrainedTokenizer,
+    model: PreTrainedModel,
+    args: argparse.Namespace,
+    word_drop_ratio: float,
+) -> list[torch.Tensor]:
+    """为单个商品的所有文本字段生成嵌入列表。"""
+    field_embeddings = []
+    for sentence in texts:
+        processed_sentence = _apply_word_dropout(sentence, word_drop_ratio)
+        if not processed_sentence.strip():  # if sentence becomes empty after dropout
+            # print(f"Warning: Sentence for an item became empty after word dropout. Original: '{sentence}'")
+            continue
+        embedding = _get_sentence_embedding(processed_sentence, tokenizer, model, args)
+        field_embeddings.append(embedding)
+    return field_embeddings
 
 
 def generate_item_embedding(
@@ -108,72 +165,34 @@ def generate_item_embedding(
     print("Generate Text Embedding: ")
     print(" Dataset: ", args.dataset)
 
-    items, texts = zip(*item_text_list)
-    order_texts = [[0]] * len(items)
-    for item, text in zip(items, texts):
-        order_texts[item] = text
-    for text in order_texts:
-        assert text != [0]
+    output_path = os.path.join(
+        args.root, args.dataset + ".emb-" + args.plm_name + "-td" + ".h5"
+    )
 
-    embeddings = []
-    start, batch_size = 0, 1
-    with torch.no_grad():
-        while start < len(order_texts):
-            if (start + 1) % 100 == 0:
-                print("==>", start + 1)
-            field_texts = order_texts[start : start + batch_size]
-            # print(field_texts)
-            field_texts = zip(*field_texts)
+    with h5py.File(output_path, "w") as hf:
+        with torch.no_grad():
+            for i, (item_id, texts) in enumerate(item_text_list):
+                if (i + 1) % 100 == 0:
+                    print(f"==> Processed {i + 1}/{len(item_text_list)} items")
 
-            field_embeddings = []
-            for sentences in field_texts:
-                sentences = list(sentences)
-                # print(sentences)
-                if word_drop_ratio > 0:
-                    print(f"Word drop with p={word_drop_ratio}")
-                    new_sentences = []
-                    for sent in sentences:
-                        new_sent = []
-                        sent = sent.split(" ")
-                        for wd in sent:
-                            rd = random.random()
-                            if rd > word_drop_ratio:
-                                new_sent.append(wd)
-                        new_sent = " ".join(new_sent)
-                        new_sentences.append(new_sent)
-                    sentences = new_sentences
-                encoded_sentences = tokenizer(
-                    sentences,
-                    max_length=args.max_sent_len,
-                    truncation=True,
-                    return_tensors="pt",
-                    padding="longest",
-                ).to(args.device)
-                outputs = model(
-                    input_ids=encoded_sentences.input_ids,
-                    attention_mask=encoded_sentences.attention_mask,
+                if not texts:
+                    print(f"Warning: Item {item_id} has no text features. Skipping.")
+                    continue
+
+                field_embeddings = _get_item_field_embeddings(
+                    texts, tokenizer, model, args, word_drop_ratio
                 )
 
-                masked_output = outputs.last_hidden_state * encoded_sentences[
-                    "attention_mask"
-                ].unsqueeze(-1)
-                mean_output = masked_output.sum(dim=1) / encoded_sentences[
-                    "attention_mask"
-                ].sum(dim=-1, keepdim=True)
-                mean_output = mean_output.detach().cpu()
-                field_embeddings.append(mean_output)
+                if not field_embeddings:
+                    print(
+                        f"Warning: No embeddings generated for item {item_id} (possibly all texts were empty or became empty after dropout). Skipping."
+                    )
+                    continue
 
-            field_mean_embedding = torch.stack(field_embeddings, dim=0).mean(dim=0)
-            embeddings.append(field_mean_embedding)
-            start += batch_size
+                item_embedding_avg = torch.stack(field_embeddings, dim=0).mean(dim=0)
+                hf.create_dataset(item_id, data=item_embedding_avg.squeeze().numpy())
 
-    embeddings = torch.cat(embeddings, dim=0).numpy()
-    print("Embeddings shape: ", embeddings.shape)
-
-    file = os.path.join(
-        args.root, args.dataset + ".emb-" + args.plm_name + "-td" + ".npy"
-    )
-    np.save(file, embeddings)
+    print(f"Embeddings saved to {output_path}")
 
 
 def parse_args() -> argparse.Namespace:
