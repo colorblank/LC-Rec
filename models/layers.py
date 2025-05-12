@@ -142,7 +142,6 @@ def kmeans(
     Returns:
         torch.Tensor: 聚类中心的张量，形状为 (num_clusters, dim)。
     """
-    B, dim = samples.shape[0], samples.shape[-1]
     device = samples.device
     x = samples.cpu().detach().numpy()
 
