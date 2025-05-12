@@ -134,4 +134,5 @@ def write_remap_index(unit2index: dict, file: str) -> None:
 def get_local_time() -> str:
     """获取当前本地时间的字符串表示。"""
     from datetime import datetime
+
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")

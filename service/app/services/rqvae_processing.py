@@ -1,6 +1,7 @@
 import torch
 from fastapi import HTTPException
-from models.rqvae import RQVAE # Assuming models.rqvae is accessible
+from models.rqvae import RQVAE  # Assuming models.rqvae is accessible
+
 
 async def get_rqvae_indices_from_embeddings(
     embeddings_tensor: torch.Tensor, current_rqvae_model: RQVAE
@@ -14,7 +15,7 @@ async def get_rqvae_indices_from_embeddings(
         raise HTTPException(
             status_code=400,
             detail=f"Input embedding dimension ({embeddings_tensor.shape[1]}) "
-                   f"does not match RQVAE model's expected input dimension ({current_rqvae_model.in_dim}).",
+            f"does not match RQVAE model's expected input dimension ({current_rqvae_model.in_dim}).",
         )
 
     indices = current_rqvae_model.get_indices(embeddings_tensor, use_sk=False)

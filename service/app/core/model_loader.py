@@ -1,4 +1,3 @@
-import os
 import torch
 from sentence_transformers import SentenceTransformer
 from models.rqvae import RQVAE  # Assuming models.rqvae is accessible from this path

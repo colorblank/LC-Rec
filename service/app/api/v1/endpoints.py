@@ -19,7 +19,10 @@ async def predict_from_vectors(input_data: BatchVectorInput, request: Request):
         ):
             raise HTTPException(
                 status_code=400,
-                detail="Invalid input data format. Expected a list of vectors (list of lists of floats).",
+                detail=(
+                    "Invalid input data format. "
+                    "Expected a list of vectors (list of lists of floats)."
+                ),
             )
 
         if input_data.data:
@@ -32,7 +35,10 @@ async def predict_from_vectors(input_data: BatchVectorInput, request: Request):
             if first_vec_dim != rqvae_model_instance.in_dim:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Input vector dimension ({first_vec_dim}) does not match RQVAE model's expected input dimension ({rqvae_model_instance.in_dim}).",
+                    detail=(
+                        f"Input vector dimension ({first_vec_dim}) does not match "
+                        f"RQVAE model's expected input dimension ({rqvae_model_instance.in_dim})."
+                    ),
                 )
 
         data_tensor = torch.tensor(input_data.data, dtype=torch.float32)

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 # Renamed from InputData for clarity, serves requirement 3
 class BatchVectorInput(BaseModel):
     data: list[list[float]]  # Assuming a list of vectors (list of floats)

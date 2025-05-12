@@ -4,7 +4,9 @@ import time
 import openai
 
 
-def get_res_batch(model_name: str, prompt_list: list[str], max_tokens: int, api_info: dict) -> list[str]:
+def get_res_batch(
+    model_name: str, prompt_list: list[str], max_tokens: int, api_info: dict
+) -> list[str]:
     """使用OpenAI API批量获取文本补全结果。
 
     Args:

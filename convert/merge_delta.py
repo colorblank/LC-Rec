@@ -1,4 +1,3 @@
-
 import argparse
 import gc
 import glob
@@ -71,7 +70,10 @@ def apply_delta_low_cpu_mem(base_model_path, target_model_path, delta_path):
 
     split_size = 4 * GB
 
-    with tempfile.TemporaryDirectory() as tmp_base_path, tempfile.TemporaryDirectory() as tmp_delta_path:
+    with (
+        tempfile.TemporaryDirectory() as tmp_base_path,
+        tempfile.TemporaryDirectory() as tmp_delta_path,
+    ):
         print(f"Split files for the base model to {tmp_base_path}")
         split_files(base_model_path, tmp_base_path, split_size)
         print(f"Split files for the delta weights to {tmp_delta_path}")
@@ -138,7 +140,6 @@ def apply_delta(base_model_path, target_model_path, delta_path):
             param.data += base.state_dict()[name]
         else:
             print(name)
-
 
     print(f"Saving the target model to {target_model_path}")
     delta.save_pretrained(target_model_path)
